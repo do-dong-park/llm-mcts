@@ -20,6 +20,11 @@ We use Large Language Models as both the commonsense world model and the heurist
 
 ## Install
 
+Install the repo: 
+```
+git clone --recurse-submodules https://github.com/1989Ryan/llm-mcts.git
+```
+
 You need to first install virtual home. Please follow with the link at [here](./vh/vh_sim/README_Download.md) as well as the official repository at [here](https://github.com/xavierpuigf/virtualhome) to install.
 
 To intall the dependencies in our method, run
