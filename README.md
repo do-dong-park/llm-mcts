@@ -10,11 +10,12 @@ We use Large Language Models as both the commonsense world model and the heurist
 
 ```
 @inproceedings{
-    zhao2023large,
-    title={Large Language Models as Commonsense Knowledge for Large-Scale Task Planning},
-    author={Zhao, Zirui and Lee, Wee Sun and Hsu, David},
-    booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
-    year={2023},
+  zhao2023large,
+  title={Large Language Models as Commonsense Knowledge for Large-Scale Task Planning},
+  author={Zirui Zhao and Wee Sun Lee and David Hsu},
+  booktitle={Thirty-seventh Conference on Neural Information Processing Systems},
+  year={2023},
+  url={https://openreview.net/forum?id=Wjp1AYB8lH}
 }
 ```
 
