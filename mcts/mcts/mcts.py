@@ -1,12 +1,15 @@
 # adapted from https://github.com/jys5609/MC-LAVE-RL.git
 
+from collections import defaultdict
+
 import numpy as np
 from tqdm import tqdm
+
 import mcts.mcts.utils as utils
-from collections import defaultdict
 from mcts.virtualhome.llm_policy import LLMPolicy
 
 DISCOUNT_FACTOR = 0.95
+
 
 class StateNode:
     def __init__(self, reward=0, done=False):
@@ -21,12 +24,11 @@ class StateNode:
         self.parent = None
         self.parent_action_id = None
         self.best_action_node = None
-        
 
         self.N = 0
         self.children = []
         self.children_probs = []
-        self.reward = reward/(1-DISCOUNT_FACTOR)
+        self.reward = reward / (1 - DISCOUNT_FACTOR)
         self.score = 0
         self.done = done
         self.predicted_reward = 0
@@ -45,19 +47,28 @@ class ActionNode:
 
 
 class MCTSAgent:
-    def __init__(self, args, env, policy=None, name='MCTS', 
-                uct_type='PUCT', valid_action_dict=None, actions_info=None,
-                  log_dir=None, visited_transitions=None, replay_file=None,
-                  use_llm=True):
+    def __init__(
+        self,
+        args,
+        env,
+        policy=None,
+        name="MCTS",
+        uct_type="PUCT",
+        valid_action_dict=None,
+        actions_info=None,
+        log_dir=None,
+        visited_transitions=None,
+        replay_file=None,
+        use_llm=True,
+    ):
         self.env = env
         self.name = name
         # self.num_actions = env.action_num
         self.best_action_node = None
         self.uct_type = uct_type
-        self.seed = args.seed
+        # self.seed = args.seed
         self.round = args.round
         self.root = None
-
 
         self.exploration_constant = args.exploration_constant
         self.bonus_constant = args.bonus_constant
@@ -72,7 +83,7 @@ class MCTSAgent:
         self.actions = [] if actions_info is None else actions_info[0]
         self.actions_e = [] if actions_info is None else actions_info[1]
 
-        self.action_values = defaultdict(set)   # Ex: {north: [3.01, 2.00, 5.01]}
+        self.action_values = defaultdict(set)  # Ex: {north: [3.01, 2.00, 5.01]}
 
         self.maxlen_obs = 150
         self.maxlen_look = 150
@@ -81,7 +92,7 @@ class MCTSAgent:
         self.simulation_num = args.simulation_num
         self.use_llm = use_llm
         if use_llm:
-            self.llm_policy = LLMPolicy(device="cuda:0") 
+            self.llm_policy = LLMPolicy(device="cpu")
         self.q_network = None
         # self.valid_action_dict = env.action_dict
         # self.valid_action_dict = {} if valid_action_dict is None else valid_action_dict
@@ -90,10 +101,10 @@ class MCTSAgent:
         self.replay_file = replay_file
 
     def search(self, ob, history, cur_depth, valid_actions, done):
-        '''
+        """
         Search the best action with probs
         :return: best action
-        '''
+        """
         init_history = history.copy()
         # if '*** You have won ***' in next_state_text or '*** You have died ***' in next_state_text:
         #     score = int(next_state_text.split('you scored ')[1].split(' out of')[0])
@@ -106,10 +117,12 @@ class MCTSAgent:
         #     self.root = self.root.best_action_node.children
         #     self.root.parent = None
         # else:
-        self.root = self.build_state(ob, history, valid_actions, done, use_llm=self.use_llm)
+        self.root = self.build_state(
+            ob, history, valid_actions, done, use_llm=self.use_llm
+        )
 
         for _ in tqdm(range(self.simulation_num)):
-        # for _ in tqdm(range(self.simulation_per_act * len(self.root.children))):
+            # for _ in tqdm(range(self.simulation_per_act * len(self.root.children))):
             self.env.reset()
             self.env.history = init_history.copy()
             _, root = self.simulate(self.root, 0)
@@ -124,16 +137,28 @@ class MCTSAgent:
 
     @staticmethod
     def state_id(history: list):
-        return ' '.join(history)
+        return " ".join(history)
 
-    def rebuild_state(self, state, ob, history, valid_actions, done, reward=0, prev_action='<s>', use_llm=False):
+    def rebuild_state(
+        self,
+        state,
+        ob,
+        history,
+        valid_actions,
+        done,
+        reward=0,
+        prev_action="<s>",
+        use_llm=False,
+    ):
         state.id = self.state_id(history)
         # state.id = ob + info['look'] + info['inv'] + str(reward) + str(info['score']) + prev_action
         state.valid_actions = valid_actions
         state.use_llm = use_llm
 
         if not use_llm:
-            state.children_probs = np.ones((len(state.valid_actions),)) / len(state.valid_actions)
+            state.children_probs = np.ones((len(state.valid_actions),)) / len(
+                state.valid_actions
+            )
 
         # elif state.id in self.state_dict.keys():
         #     state.children_probs = self.state_dict[state.id].children_probs
@@ -146,7 +171,16 @@ class MCTSAgent:
 
         return state
 
-    def build_state(self, ob, history, valid_actions, done, reward=0, prev_action='<s>', use_llm=False):
+    def build_state(
+        self,
+        ob,
+        history,
+        valid_actions,
+        done,
+        reward=0,
+        prev_action="<s>",
+        use_llm=False,
+    ):
         state = StateNode()
         state.ob = ob
         # state.look = info['look']
@@ -164,13 +198,17 @@ class MCTSAgent:
         state.use_llm = use_llm
 
         if not use_llm:
-            state.children_probs = np.ones((len(state.valid_actions),)) / len(state.valid_actions)
+            state.children_probs = np.ones((len(state.valid_actions),)) / len(
+                state.valid_actions
+            )
 
-            
         else:
-            state.children_probs, state.predicted_reward = self.llm_policy._calculate_emperical_prob(
-                history, ob, valid_actions, self.env.get_goal(), 10, 0, 0.95)
-            
+            state.children_probs, state.predicted_reward = (
+                self.llm_policy._calculate_emperical_prob(
+                    history, ob, valid_actions, self.env.get_goal(), 10, 0, 0.95
+                )
+            )
+
         self.state_dict[state.id] = state
         for valid_action in state.valid_actions:
             if isinstance(state.valid_actions, dict):
@@ -180,56 +218,80 @@ class MCTSAgent:
 
         return state
 
-        
     def simulate(self, state_node, depth):
 
         if state_node.done or depth == self.max_depth:
             return 0, state_node
 
-        best_action_node_idx = self.greedy_action_node(state_node, self.exploration_constant, self.bonus_constant)
+        best_action_node_idx = self.greedy_action_node(
+            state_node, self.exploration_constant, self.bonus_constant
+        )
         best_action_node = state_node.children[best_action_node_idx]
         rollout_next = False
-        ob, reward, done, history, valid_actions = self.env.step(best_action_node.action)
+        ob, reward, done, history, valid_actions = self.env.step(
+            best_action_node.action
+        )
         next_state_id = self.state_id(history)
         # path_of_nodes.append((state_node, best_action_node))
         if next_state_id == best_action_node.children_id:
             next_state_node = best_action_node.children
             if next_state_node.use_llm == False:
-                next_state_node = self.build_state(ob, history, valid_actions, done, reward, prev_action=best_action_node.action, use_llm=self.use_llm)
+                next_state_node = self.build_state(
+                    ob,
+                    history,
+                    valid_actions,
+                    done,
+                    reward,
+                    prev_action=best_action_node.action,
+                    use_llm=self.use_llm,
+                )
                 # best_action_node.children[index] = next_state_node
                 next_state_node.parent = state_node
                 rollout_next = True
-        else: 
-            next_state_node = self.build_state(ob, history, valid_actions, done, reward, prev_action=best_action_node.action, use_llm=self.use_llm)
+        else:
+            next_state_node = self.build_state(
+                ob,
+                history,
+                valid_actions,
+                done,
+                reward,
+                prev_action=best_action_node.action,
+                use_llm=self.use_llm,
+            )
             next_state_node.parent = state_node
             best_action_node.children = next_state_node
             best_action_node.children_id = next_state_node.id
             rollout_next = True
 
-
         if rollout_next:
             if self.use_llm:
                 rollout_r = []
                 for _ in range(1):
-                    random_r = reward + self.discount_factor * self.rollout(next_state_node, depth+1)
-                    rollout_r.append(random_r)  
-                R = sum(rollout_r)/len(rollout_r)
+                    random_r = reward + self.discount_factor * self.rollout(
+                        next_state_node, depth + 1
+                    )
+                    rollout_r.append(random_r)
+                R = sum(rollout_r) / len(rollout_r)
             else:
                 rollout_r = []
                 for _ in range(1):
-                    random_r = reward + self.discount_factor * self.rollout(next_state_node, depth+1)
-                    rollout_r.append(random_r)  
-                R = sum(rollout_r)/len(rollout_r)
+                    random_r = reward + self.discount_factor * self.rollout(
+                        next_state_node, depth + 1
+                    )
+                    rollout_r.append(random_r)
+                R = sum(rollout_r) / len(rollout_r)
         else:
-            r, next_state_node = self.simulate(next_state_node, depth+1)
+            r, next_state_node = self.simulate(next_state_node, depth + 1)
             R = reward + self.discount_factor * r
 
         state_node.N += 1
         best_action_node.N += 1
         best_action_node.children = next_state_node
         best_action_node.Rs.append(R)
-        best_action_node.Q = np.sum(np.array(best_action_node.Rs) * utils.softmax(best_action_node.Rs, T=10))
-        state_node.best_action_node = best_action_node       
+        best_action_node.Q = np.sum(
+            np.array(best_action_node.Rs) * utils.softmax(best_action_node.Rs, T=10)
+        )
+        state_node.best_action_node = best_action_node
         return R, state_node
 
     def max_visit_action_node(self, state_node):
@@ -240,27 +302,37 @@ class MCTSAgent:
             children_count.append(child.N)
 
         children_count = children_count / np.max(children_count)
-        count_based_probs = children_count ** (1/self.action_selection_temp) / (np.sum(children_count ** (1/self.action_selection_temp)))
+        count_based_probs = children_count ** (1 / self.action_selection_temp) / (
+            np.sum(children_count ** (1 / self.action_selection_temp))
+        )
         return np.random.choice(state_node.children, p=count_based_probs)
 
-    def greedy_action_node(self, state_node, exploration_constant, bonus_constant, if_print=False):
+    def greedy_action_node(
+        self, state_node, exploration_constant, bonus_constant, if_print=False
+    ):
         best_value = -np.inf
         best_children = []
         best_children_prob = []
         for i in range(len(state_node.children)):
             child = state_node.children[i]
-            assert len(state_node.children_probs) == len(state_node.children), print(state_node.children_probs)
+            assert len(state_node.children_probs) == len(state_node.children), print(
+                state_node.children_probs
+            )
             child_prob = state_node.children_probs[i]
-            
+
             if exploration_constant == 0:
                 ucb_value = child.Q
-            elif self.uct_type == 'UCT':
-                ucb_value = child.Q + exploration_constant * np.sqrt(np.log(state_node.N + 1) / (child.N + 1))
+            elif self.uct_type == "UCT":
+                ucb_value = child.Q + exploration_constant * np.sqrt(
+                    np.log(state_node.N + 1) / (child.N + 1)
+                )
                 # print(child.Q, exploration_constant * np.sqrt(np.log(state_node.N + 1) / (child.N + 1)))
-            elif self.uct_type == 'PUCT':
+            elif self.uct_type == "PUCT":
                 # print(child_prob)
-                ucb_value = child.Q + exploration_constant * child_prob * np.sqrt(state_node.N) / (child.N + 1)
-            elif self.uct_type == 'MC-LAVE':
+                ucb_value = child.Q + exploration_constant * child_prob * np.sqrt(
+                    state_node.N
+                ) / (child.N + 1)
+            elif self.uct_type == "MC-LAVE":
                 if child.action in self.action_embedding.keys():
                     action_e = self.action_embedding[child.action]
                 else:
@@ -275,7 +347,9 @@ class MCTSAgent:
                 for a in actions:
                     actions_e.append(self.action_embedding[a])
 
-                near_act, near_idx = utils.find_near_actions(action_e, actions, np.array(actions_e), threshold=0.8)
+                near_act, near_idx = utils.find_near_actions(
+                    action_e, actions, np.array(actions_e), threshold=0.8
+                )
                 if len(near_idx) == 0:
                     child.Q_hat = 0
                 else:
@@ -285,9 +359,17 @@ class MCTSAgent:
                     near_Qs = list(near_Qs)
                     child.Q_hat = utils.softmax_value(near_Qs)
 
-                ucb_value = child.Q \
-                            + exploration_constant * np.sqrt(state_node.N + 1) / (child.N + 1) * child_prob \
-                            + bonus_constant * np.sqrt(state_node.N + 1) / (child.N + 1) * child.Q_hat
+                ucb_value = (
+                    child.Q
+                    + exploration_constant
+                    * np.sqrt(state_node.N + 1)
+                    / (child.N + 1)
+                    * child_prob
+                    + bonus_constant
+                    * np.sqrt(state_node.N + 1)
+                    / (child.N + 1)
+                    * child.Q_hat
+                )
 
             else:
                 raise NotImplementedError
@@ -318,13 +400,14 @@ class MCTSAgent:
             print("Done!")
         next_state_id = self.state_id(history)
 
-
         if next_state_id == action_node.children_id:
             next_state_node = action_node.children
         else:
-            next_state_node = self.build_state(ob, history, valid_actions, done, reward, prev_action=action)
+            next_state_node = self.build_state(
+                ob, history, valid_actions, done, reward, prev_action=action
+            )
             next_state_node.parent = state_node
             action_node.children = next_state_node
             action_node.children_id = next_state_node.id
-        r = reward + self.discount_factor * self.rollout(next_state_node, depth+1)
+        r = reward + self.discount_factor * self.rollout(next_state_node, depth + 1)
         return r
