@@ -17,8 +17,8 @@ from mcts.virtualhome.expert_data import get_action_list_valid
 load_dotenv(verbose=True)
 OPENAI_KEY = os.getenv("LLM_MCTS_OPENAI_KEY")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
 client = OpenAI(api_key=OPENAI_KEY)
+
 MAX_STEPS = 20  # maximum number of steps to be generated
 CUTOFF_THRESHOLD = (
     0.8  # early stopping threshold based on matching score and likelihood score
@@ -484,6 +484,7 @@ Now, answer the following questions:\n
         self.furniture_list = self.container_list + [
             ele for ele in self.surface_list if ele not in self.container_list
         ]
+        self.furniture_list.remove("floor")
         # 집 안 모든 가구, 물건 정보
         self.all_list = self.furniture_list + self.grabable_list
 

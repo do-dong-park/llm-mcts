@@ -2,13 +2,14 @@ import json
 import os
 import pickle
 import random
+import sys
 import time
 from typing import List
 
 import numpy as np
-import openai
 import torch
 from dotenv import load_dotenv
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import util as st_utils
 
@@ -17,6 +18,7 @@ from mcts.virtualhome.expert_data import get_action_list_valid
 load_dotenv(verbose=True)
 OPENAI_KEY = os.getenv("LLM_MCTS_OPENAI_KEY")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+client = OpenAI(api_key=OPENAI_KEY)
 
 MAX_STEPS = 20  # maximum number of steps to be generated
 CUTOFF_THRESHOLD = (
@@ -335,29 +337,29 @@ You need to strictly follow the format in the following examples:\n"""
             print("calling buffer")
             return self.prompt_buffer[prompt + task]
         else:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                # model = "gpt-4",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": prompt + task,
-                    }
-                ],
-                **self.sampling_params,
-            )
-            # print(task)
-            # print(response['choices'][0]['message']['content'])
+            try:
+
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    # model = "gpt-4",
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": prompt + task,
+                        }
+                    ],
+                    **self.sampling_params,
+                )
+            except Exception as e:
+                print(f"에러 원인 : {e}")
+                time.sleep(5)
+                sys.exit(1)
+
             generated_samples = [
-                response["choices"][i]["message"]["content"].split(", ")
+                response.choices[i].message.content.split(",")
                 for i in range(self.sampling_params["n"])
             ]
-            # print(generated_samples)
-            # generated_samples = [response['choices'][i]['text'].split("\n")[0] for i in range(self.sampling_params['n'])]
-            # calculate mean log prob across tokens
-            # mean_log_probs = [np.mean(response['choices'][i]['logprobs']['token_logprobs'])
-            #   for i in range(self.sampling_params['n'])]
-            # print(generated_samples)
+
             self.prompt_buffer[prompt + task] = generated_samples
             return generated_samples
 

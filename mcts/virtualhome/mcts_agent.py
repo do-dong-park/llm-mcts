@@ -1,6 +1,5 @@
 import argparse
 import copy
-import os
 import pickle
 import time
 
@@ -114,7 +113,7 @@ class mcts_vh_env:
         self.vh_pyenv.pomdp = True
         self.model = None
         self.env_task_set = pickle.load(
-            open(f"{os.getcwd()}/vh/dataset/env_task_set_40_simple.pik", "rb")
+            open("./vh/dataset/env_task_set_3_simple.pik", "rb")
         )
         self.history = []
         self.init_history = []
@@ -253,6 +252,7 @@ class mcts_vh_env:
             interact_item_idxs = valid_action_space_dict[action]
             action = action.replace("walktowards", "walk")
             if "put" in action:
+
                 valid_action_space += [
                     f"[{action}] <{grab_name}> ({grab_id}) <{item_name}> ({item_id})"
                     for grab_id, grab_name, item_id, item_name in interact_item_idxs
@@ -391,30 +391,24 @@ def parse_args():
 
 
 def find_test_data_file_path(args):
-    base_dir = os.path.dirname(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
-    file_path = f"{base_dir}/vh/dataset/env_task_set_40_{args.mode}.pik"
-    # file_path = f"vh/dataset/env_task_set_40_{args.mode}_"
-    # if not args.seen_item:
-    #     file_path += "unseen_item.pik"
-    # elif not args.seen_apartment:
-    #     file_path += "unseen_apartment.pik"
-    # elif not args.seen_comp:
-    #     file_path += "unseen_composition.pik"
-    # else:
-    #     file_path += "seen.pik"
-    # return file_path
+    file_path = f"./vh/dataset/env_task_set_10_{args.mode}_"
+    if not args.seen_item:
+        file_path += "unseen_item.pik"
+    elif not args.seen_apartment:
+        file_path += "unseen_apartment.pik"
+    elif not args.seen_comp:
+        file_path += "unseen_composition.pik"
+    else:
+        file_path += "seen.pik"
     return file_path
 
 
 def test():
     args = parse_args()
     file_path = find_test_data_file_path(args)
-
     env_task_set = pickle.load(open(file_path, "rb"))
     executable_args = {
-        "file_name": f"{os.getcwd()}/vh/vh_sim/macos_exec.2.2.4.app",
+        "file_name": "./vh/vh_sim/macos_exec.2.2.4.app",
         "x_display": "1",
         "no_graphics": True,
     }
@@ -455,6 +449,7 @@ def test():
     succ = 0
     total = 0
     for i in range(len(vhenv.env_task_set)):
+
         obs = vhenv.reset()
         # if 'setup_table' in vhenv.task_name or 'put_dishwasher' in vhenv.task_name:
         #     continue

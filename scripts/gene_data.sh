@@ -4,7 +4,7 @@ export PYTHONPATH="$PWD"
 # Generate Goal data
 
 # 1. training all simple task
-python vh/data_gene/gen_data/vh_init.py --port "8083" --task all --mode simple --usage train --num-per-apartment 50
+python vh/data_gene/gen_data/vh_init.py --port "8083" --task all --mode simple --usage train --num-per-apartment 3
 # 2. generate full observable env & heuristic agent trajectories
 python vh/data_gene/testing_agents/gene_data.py --mode simple \
     --dataset_path ./vh/dataset/env_task_set_50_simple.pik\
