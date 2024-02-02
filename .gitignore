@@ -167,3 +167,5 @@ cython_debug/
 vh/vh_sim/*
 *.pt
 .vscode/*
+.DS_store
+.env

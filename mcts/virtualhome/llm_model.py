@@ -7,14 +7,18 @@ from typing import List
 
 import numpy as np
 import torch
+from dotenv import load_dotenv
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import util as st_utils
 
 from mcts.virtualhome.expert_data import get_action_list_valid
 
+load_dotenv(verbose=True)
+OPENAI_KEY = os.getenv("LLM_MCTS_OPENAI_KEY")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-client = OpenAI(api_key="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")
+
+client = OpenAI(api_key=OPENAI_KEY)
 MAX_STEPS = 20  # maximum number of steps to be generated
 CUTOFF_THRESHOLD = (
     0.8  # early stopping threshold based on matching score and likelihood score
@@ -506,9 +510,7 @@ Now, answer the following questions:\n
                 1,
             )
             object_positions[object] = samples
-            # print(object_positions[object])
-        # print(object_positions)
-        # save samples
+
         json.dump(
             object_positions, open(f"{data_dir}/furniture_all_positions.json", "w")
         )

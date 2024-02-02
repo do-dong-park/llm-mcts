@@ -8,12 +8,16 @@ from typing import List
 import numpy as np
 import openai
 import torch
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from sentence_transformers import util as st_utils
 
 from mcts.virtualhome.expert_data import get_action_list_valid
 
-openai.api_key = "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"
+load_dotenv(verbose=True)
+OPENAI_KEY = os.getenv("LLM_MCTS_OPENAI_KEY")
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 MAX_STEPS = 20  # maximum number of steps to be generated
 CUTOFF_THRESHOLD = (
     0.8  # early stopping threshold based on matching score and likelihood score
