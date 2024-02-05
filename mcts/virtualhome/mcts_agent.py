@@ -1,6 +1,7 @@
 import argparse
 import copy
 import pickle
+import pprint
 import time
 
 from mcts.mcts.mcts import MCTSAgent
@@ -251,8 +252,8 @@ class mcts_vh_env:
         for action in valid_action_space_dict:
             interact_item_idxs = valid_action_space_dict[action]
             action = action.replace("walktowards", "walk")
-            if "put" in action:
 
+            if "put" in action:
                 valid_action_space += [
                     f"[{action}] <{grab_name}> ({grab_id}) <{item_name}> ({item_id})"
                     for grab_id, grab_name, item_id, item_name in interact_item_idxs
@@ -404,6 +405,8 @@ def find_test_data_file_path(args):
 
 
 def test():
+
+    # Initialize
     args = parse_args()
     file_path = find_test_data_file_path(args)
     env_task_set = pickle.load(open(file_path, "rb"))
@@ -423,10 +426,11 @@ def test():
         executable_args=executable_args,
         base_port=8084,
     )
-    goal_spec = vhenv.get_goal(vhenv.task_goal[0], vhenv.agent_goals[0])
-    graph = vhenv.get_graph()
-    container_name2id = {}
 
+    graph = vhenv.get_graph()
+    goal_spec = vhenv.get_goal(vhenv.task_goal[0], vhenv.agent_goals[0])
+
+    container_name2id = {}
     for node in graph["nodes"]:
         if (
             node["class_name"] in container_classes
@@ -435,31 +439,30 @@ def test():
             container_name2id[node["class_name"]] = node["id"]
 
     env = mcts_vh_env(graph, goal_spec, vhenv.task_goal)
-    print(goal_spec)
     obs, valid_actions = env.reset(
         goal_spec=goal_spec,
         task_goal=vhenv.task_goal,
         graph=graph,
     )
     agent = MCTSAgent(args, env, uct_type=args.uct_type, use_llm=True)
-    # llm_policy = LLMPolicy(device="cuda:0")
-    print(vhenv.task_goal)
+
     history = []
     done = False
     succ = 0
     total = 0
+
     for i in range(len(vhenv.env_task_set)):
-
         obs = vhenv.reset()
-        # if 'setup_table' in vhenv.task_name or 'put_dishwasher' in vhenv.task_name:
-        #     continue
-        goal_spec = vhenv.get_goal(vhenv.task_goal[0], vhenv.agent_goals[0])
 
+        goal_spec = vhenv.get_goal(vhenv.task_goal[0], vhenv.agent_goals[0])
         graph = vhenv.get_graph()
-        plate_ids = []
+
         task_goal = vhenv.task_goal[0]
         goal = agent.env.get_goal_(task_goal, graph)
+
+        # NI goal to formal language
         formal_goal = llm_model.interpret_goal(goal, container_name2id)
+
         task_goal_ = {
             0: {key: num[0] for key, num in formal_goal.items()},
             1: {key: num[0] for key, num in formal_goal.items()},
@@ -470,30 +473,28 @@ def test():
             graph=graph,
         )
         agent.env.update_(None, obs[0])
-        # agent.env.update(None, obs[0])
+
         history = []
 
-        # print(vhenv.task_goal)
         done = False
+
         for i in range(30):
             print(" ---------------------- Step: ", i, " ---------------------- ")
             action = agent.search(obs, history, i, valid_actions, done)
-            # action = agent.llm_policy.act(history, obs, valid_actions, agent.env.get_goal())
-            # ob, reward, done, history, valid_actions = env.step(agent.valid_action_dict[action])
             graph = vhenv.get_graph()
-            plate_ids = []
-
             obs, reward, done, info, success = vhenv.step({0: action})
             agent.env.update_(action, obs[0])
             valid_actions = agent.env.get_valid_action(obs)
             history.append(action)
+
             if done:
                 succ += 1
                 break
+
         total += 1
         agent.root = None
         agent.state_dict = {}
-        time.sleep(5)
+
         print("succ rate: ", succ / total)
 
 

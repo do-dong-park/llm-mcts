@@ -94,8 +94,6 @@ class MCTSAgent:
         if use_llm:
             self.llm_policy = LLMPolicy(device="cpu")
         self.q_network = None
-        # self.valid_action_dict = env.action_dict
-        # self.valid_action_dict = {} if valid_action_dict is None else valid_action_dict
         self.state_dict = {}
         self.action_embedding = {}
         self.replay_file = replay_file
@@ -106,31 +104,21 @@ class MCTSAgent:
         :return: best action
         """
         init_history = history.copy()
-        # if '*** You have won ***' in next_state_text or '*** You have died ***' in next_state_text:
-        #     score = int(next_state_text.split('you scored ')[1].split(' out of')[0])
-        #     reward = score - state_node.score
-        #     info['score'] = score
-
-        # self.write_buffer(state_node, best_action_node, ob, reward, done, info)
-
-        # if self.root is not None and self.root.best_action_node.children is not None:
-        #     self.root = self.root.best_action_node.children
-        #     self.root.parent = None
-        # else:
         self.root = self.build_state(
             ob, history, valid_actions, done, use_llm=self.use_llm
         )
 
         for _ in tqdm(range(self.simulation_num)):
-            # for _ in tqdm(range(self.simulation_per_act * len(self.root.children))):
             self.env.reset()
             self.env.history = init_history.copy()
             _, root = self.simulate(self.root, 0)
             self.root = root
+
         # select best action by Q-value
         best_action_node_idx = self.greedy_action_node(self.root, 0, 0, if_print=True)
         # select best action by Count
         # best_action_node = self.max_visit_action_node(self.root)
+
         best_action_node = self.root.children[best_action_node_idx]
         self.root.best_action_node = best_action_node
         return self.root.best_action_node.action
@@ -183,17 +171,12 @@ class MCTSAgent:
     ):
         state = StateNode()
         state.ob = ob
-        # state.look = info['look']
-        # state.inv = info['inv']
         state.state = ob
         state.done = done
-        # state.state = ob + info['look'] + info['inv']
         state.reward = reward
-        # state.score = info['score']
         state.prev_action = prev_action
         state.history = history
         state.id = self.state_id(history)
-        # state.id = ob + info['look'] + info['inv'] + str(reward) + str(info['score']) + prev_action
         state.valid_actions = valid_actions
         state.use_llm = use_llm
 
@@ -208,8 +191,8 @@ class MCTSAgent:
                     history, ob, valid_actions, self.env.get_goal(), 10, 0, 0.95
                 )
             )
-
         self.state_dict[state.id] = state
+
         for valid_action in state.valid_actions:
             if isinstance(state.valid_actions, dict):
                 state.children.append(ActionNode(state.valid_actions[valid_action]))
@@ -384,7 +367,7 @@ class MCTSAgent:
         if if_print:
             for c in state_node.children:
                 if c.N > 0:
-                    print(c.action, c.Q, c.N)
+                    print(f"candiates : \n {c.action, c.Q, c.N}")
         best_children_prob = np.array(best_children_prob) / np.sum(best_children_prob)
         output_action_index = np.argmax(best_children_prob)
         return best_children[output_action_index]
